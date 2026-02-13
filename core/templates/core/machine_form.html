@@ -1,0 +1,119 @@
+{% extends 'core/base.html' %}
+
+{% block title %}
+    {% if object %}Редактирование машины {{ object.serial_number }}{% else %}Новая машина{% endif %} — Силант
+{% endblock %}
+
+{% block content %}
+
+<div style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); max-width: 960px; margin: 0 auto;">
+
+    <h1 style="margin-top: 0; margin-bottom: 1.8rem;">
+    {% if title %}
+        {{ title }}
+    {% else %}
+        Редактирование данных машины
+    {% endif %}
+    {% if object %}
+        номер {{ object }}
+    {% endif %}
+    </h1>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% for field in form %}
+            <div class="form-row {% if field.errors %}error{% endif %}">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+
+                {{ field }}
+
+                {% if field.help_text %}
+                    <small class="help-text">{{ field.help_text }}</small>
+                {% endif %}
+
+                {% if field.errors %}
+                    <div class="field-error">
+                        {{ field.errors|join:"<br>" }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div style="margin-top: 2.5rem; text-align: right;">
+            <button type="submit" class="btn" style="padding: 0.9rem 2.5rem; font-size: 1.1rem;">
+                {% if title == 'Добавление ТО' %}
+                    Создать ТО
+                {% elif title == 'Добавление рекламации' %}
+                    Создать рекламацию
+                {% elif object %}
+                    Сохранить изменения
+                {% else %}
+                    Создать машину
+                {% endif %}
+            </button>
+            <a href="{% url 'core:dashboard' %}" class="btn-outline" style="margin-left: 1rem; padding: 0.9rem 2rem;">
+                Отмена
+            </a>
+        </div>
+    </form>
+
+</div>
+
+<style>
+    .form-row {
+        margin-bottom: 1.6rem;
+    }
+    .form-row label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--dark-blue);
+    }
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
+    .form-row input[type="date"] {
+        padding: 0.75rem;
+    }
+    .form-row textarea {
+        resize: vertical;
+        min-height: 90px;
+    }
+    .form-row .help-text {
+        display: block;
+        margin-top: 0.3rem;
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    /* Ошибки */
+    .form-row.error input,
+    .form-row.error select,
+    .form-row.error textarea {
+        border-color: var(--red);
+        background-color: #fff5f5;
+    }
+    .field-error {
+        margin-top: 0.4rem;
+        color: var(--red);
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    /* Для двухколоночных блоков */
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.6rem;
+    }
+</style>
+
+{% endblock %}

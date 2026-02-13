@@ -1,0 +1,15 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Подтверждение удаления{% endblock %}
+
+{% block content %}
+<div style="background: white; padding: 2rem; border-radius: 8px; max-width: 600px; margin: 2rem auto;">
+    <h2>Подтвердите удаление</h2>
+    <p>Вы уверены, что хотите удалить эту запись? Это действие нельзя отменить.</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn" style="background: var(--red);">Да, удалить</button>
+        <a href="{% url 'core:machine_detail' serial_number=object.machine.serial_number %}" class="btn-outline" style="margin-left: 1rem;">Отмена</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Машина {{ machine.serial_number }} — Силант{% endblock %}
+
+{% block content %}
+
+<div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h1 style="margin: 0;">Машина {{ machine.serial_number }}</h1>
+        
+        {% if can_edit %}
+          <a href="{% url 'core:machine_edit' serial_number=machine.serial_number %}" class="btn" style="padding: 0.8rem 1.8rem; font-size: 1.1rem;">
+              ✏️ Редактировать данные
+          </a>
+        {% endif %}
+    </div>
+
+    <table class="data-table" style="width:100%; border-collapse: collapse;">
+        <tbody>
+            {% for label, value in fields %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <th style="width: 45%; padding: 1rem; background: var(--dark-blue); color: white; text-align: left;">
+                        {{ label }}
+                    </th>
+                    <td style="padding: 1rem;">{{ value }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid #ddd;">
+        <h2>История ТО и рекламаций</h2>
+
+        <!-- Кнопки добавления -->
+        <div style="margin: 1.5rem 0; display: flex; gap: 1rem; flex-wrap: wrap;">
+            {% if can_add_maintenance %}
+                <a href="{% url 'core:maintenance_create' serial_number=machine.serial_number %}"
+                   class="btn" style="background: var(--dark-blue);">
+                    + Добавить ТО
+                </a>
+            {% endif %}
+            {% if can_add_claim %}
+                <a href="{% url 'core:claim_create' serial_number=machine.serial_number %}"
+                   class="btn" style="background: var(--dark-blue);">
+                    + Добавить рекламацию
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- Таблица ТО -->
+        <h3 style="margin-top: 2rem;">Техническое обслуживание (последние 5)</h3>
+        {% if maintenances %}
+            <div class="data-table-container">
+                <table class="data-table" style="width:100%; margin-top: 1rem;">
+                    <thead>
+                        <tr>
+                            <th>Вид ТО</th>
+                            <th>Дата</th>
+                            <th>Наработка, м/ч</th>
+                            <th>Сервис</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in maintenances %}
+                        <tr>
+                            <td>{{ m.type }}</td>
+                            <td>{{ m.date|date:"d.m.Y" }}</td>
+                            <td>{{ m.hours|default:"—" }}</td>
+                            <td>
+                                {% if m.organization %}
+                                    {{ m.organization.email|default:m.organization }}
+                                {% elif m.service_company %}
+                                    {{ m.service_company.email|default:"—" }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td style="white-space: nowrap; text-align: center;">
+                                {% if can_edit or request.user == m.organization or request.user == m.service_company %}
+                                    <a href="{% url 'core:maintenance_edit' pk=m.pk %}"
+                                       title="Редактировать ТО"
+                                       style="margin-right: 12px; font-size: 1.2rem; text-decoration: none;">✏️</a>
+
+                                    <a href="{% url 'core:maintenance_delete' pk=m.pk %}"
+                                       title="Удалить ТО"
+                                       onclick="event.stopPropagation(); return confirm('Вы уверены, что хотите удалить эту запись ТО?');"
+                                       style="color: var(--red); font-size: 1.2rem; text-decoration: none;">🗑</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" style="text-align:center; padding:1.5rem; color:#777;">Нет записей ТО</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+                <p style="margin-top: 1rem; color: #666;">
+                    <a href="{% url 'core:dashboard' %}#maintenance">Показать все ТО →</a>
+                </p>
+            {% else %}
+                <p style="color: #777; margin-top: 1rem;">По этой машине пока нет записей ТО</p>
+            {% endif %}
+
+        <!-- Таблица Рекламаций -->
+        <h3 style="margin-top: 2rem;">Рекламации (последние 5)</h3>
+        {% if claims %}
+            <div class="data-table-container">
+                < class="data-table" style="width:100%; margin-top: 1rem;">
+                    <thead>
+                        <tr>
+                            <th>Дата отказа</th>
+                            <th>Узел</th>
+                            <th>Дата восстановления</th>
+                            <th>Простой (дней)</th>
+                            <th>Сервис</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in claims %}
+                        <tr>
+                            <td>{{ c.failure_date|date:"d.m.Y" }}</td>
+                            <td>{{ c.failure_node }}</td>
+                            <td>{{ c.recovery_date|date:"d.m.Y"|default:"—" }}</td>
+                            <td>{{ c.downtime|default:"—" }}</td>
+                            <td>{{ c.service_company.email|default:"—" }}
+                            <td style="white-space: nowrap; text-align: center;">
+                                {% if can_edit or request.user == c.service_company %}
+                                    <a href="{% url 'core:claim_edit' pk=c.pk %}" style="margin-right: 8px;">✏️</a>
+                                    <a href="{% url 'core:claim_delete' pk=c.pk %}" style="color: var(--red);">🗑</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top: 1rem; color: #666;">
+                <a href="{% url 'core:dashboard' %}#claims">Показать все рекламации →</a>
+            </p>
+        {% else %}
+            <p style="color: #777; margin-top: 1rem;">По этой машине пока нет рекламаций</p>
+        {% endif %}
+    </div>
+
+</div>
+
+{% endblock %}

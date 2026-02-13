@@ -1,0 +1,51 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Поиск техники{% endblock %}
+
+{% block content %}
+
+<h2>Поиск по заводскому номеру</h2>
+
+<div style="max-width:800px; margin:2rem auto; background:white; padding:2.5rem; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+    <form method="post">
+        {% csrf_token %}
+        <p>
+            <label for="serial_number" style="font-size:1.3rem; display:block; margin-bottom:0.8rem; color:var(--dark-blue);">
+                Заводской номер машины:
+            </label>
+            <input type="text" id="serial_number" name="serial_number" 
+                   placeholder="Например: 123456789" required autofocus
+                   style="width:100%; padding:0.9rem; font-size:1.2rem; border:2px solid #ccc; border-radius:6px; box-sizing:border-box;">
+        </p>
+        <button type="submit" class="btn" style="font-size:1.2rem; padding:0.9rem 2.5rem;">
+            Найти
+        </button>
+    </form>
+
+    {% if error %}
+        <div style="margin-top:2rem; padding:1rem; background:#ffebee; color:var(--red); border-radius:6px; text-align:center;">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    {% if machine %}
+        <h3 style="margin-top:2.5rem;">Найденная машина</h3>
+
+        <div class="data-table-container">
+            <table style="width:100%; border-collapse:collapse; margin-top:1rem; background:#fafafa; border:1px solid #ddd;">
+                <tbody>
+                    {% for label, value in fields %}
+                        <tr style="border-bottom:1px solid #eee;">
+                            <th style="width:45%; padding:1rem; background:var(--dark-blue); color:white; text-align:left;">{{ label }}</th>
+                            <td style="padding:1rem;">{{ value }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

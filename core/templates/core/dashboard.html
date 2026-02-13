@@ -1,0 +1,255 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Личный кабинет — Силант{% endblock %}
+
+{% block content %}
+
+<h1>Личный кабинет</h1>
+<p>Вы вошли как: <strong>{{ user.email }}</strong></p>
+
+<div class="tabs-container" style="margin-top: 2rem;">
+
+    <!-- Навигация по вкладкам -->
+    <div class="tabs-header" style="display: flex; border-bottom: 2px solid #ccc;">
+        <button class="tab-btn active" data-tab="machines">Технические данные</button>
+        <button class="tab-btn" data-tab="maintenance">ТО</button>
+        <button class="tab-btn" data-tab="claims">Рекламации</button>
+    </div>
+
+    <!-- Содержимое вкладок -->
+    <div class="tab-content">
+
+        <!-- Вкладка Машины -->
+        <div id="machines" class="tab-panel active">
+            <h2>Доступные машины</h2>
+            {% if can_edit %}
+              <p style="margin: 1.5rem 0;">
+                  <a href="{% url 'core:machine_create' %}" class="btn" style="font-size: 1.1rem;">
+                      + Добавить новую машину
+                  </a>
+              </p>
+            {% endif %}
+
+            {% if machines %}
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Зав. №</th>
+                                <th>Модель</th>
+                                <th>Дата отгрузки</th>
+                                <th>Клиент</th>
+                                <th>Сервисная орг.</th>
+                                {% if can_edit %}
+                                    <th>Действия</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                    <tbody>
+                        {% for m in machines %}
+                        <tr style="cursor: pointer;" onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.serial_number %}'">
+                            <td>{{ m.serial_number }}</td>
+                            <td>{{ m.model.name|default:"—" }}</td>
+                            <td>{{ m.shipment_date|date:"d.m.Y"|default:"—" }}</td>
+                            <td>{{ m.client.email|default:"—" }}</td>
+                            <td>{{ m.service_company.email|default:"—" }}</td>
+                            {% if can_edit %}
+                                <td>
+                                    <a href="{% url 'core:machine_edit' serial_number=m.serial_number %}" style="text-decoration: none;">✏️ Редактировать</a>
+                                </td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{% if can_edit %}6{% else %}5{% endif %}" style="text-align:center; padding:2rem; color:#777;">
+                                У вас пока нет доступных машин
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            {% else %}
+                <p style="margin-top:1.5rem; font-size:1.1rem; color:#555;">
+                    Пока нет машин, доступных для просмотра.
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- Вкладка ТО -->
+        <div id="maintenance" class="tab-panel">
+            <h2>История технического обслуживания</h2>
+
+            {% if maintenances %}
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Машина</th>
+                                <th>Вид ТО</th>
+                                <th>Дата</th>
+                                <th>Наработка, м/ч</th>
+                                <th>Сервис / Организация</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                    <tbody>
+                        {% for m in maintenances %}
+                            <tr style="cursor:pointer;">
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">{{ m.machine.serial_number }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">{{ m.type }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">{{ m.date|date:"d.m.Y" }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">{{ m.hours|default:"—" }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">
+                                    {% if m.organization %}
+                                        {{ m.organization }}
+                                    {% elif m.service_company %}
+                                        {{ m.service_company }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td style="white-space: nowrap; text-align: center;">
+                                    {% if is_manager or request.user == m.organization or request.user == m.service_company %}
+                                        <a href="{% url 'core:maintenance_edit' pk=m.pk %}"
+                                           title="Редактировать ТО"
+                                           style="margin-right: 12px; font-size: 1.2rem; text-decoration: none;">✏️</a>
+
+                                        <a href="{% url 'core:maintenance_delete' pk=m.pk %}"
+                                           title="Удалить ТО"
+                                           onclick="event.stopPropagation(); return confirm('Вы уверены, что хотите удалить эту запись ТО?');"
+                                           style="color: var(--red); font-size: 1.2rem; text-decoration: none;">🗑</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" style="text-align:center; padding: 3rem 1rem; color:#777; font-style: italic;">
+                                    Нет записей технического обслуживания
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color:#777; margin-top:1.5rem;">У вас пока нет записей ТО</p>
+            {% endif %}
+            </div>
+        </div>
+
+        <!-- Вкладка Рекламации -->
+        <div id="claims" class="tab-panel">
+            <h2>Рекламации</h2>
+
+            {% if claims %}
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Машина</th>
+                                <th>Дата отказа</th>
+                                <th>Узел отказа</th>
+                                <th>Дата восстановления</th>
+                                <th>Простой (дней)</th>
+                                <th>Сервис</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                    <tbody>
+                        {% for c in claims %}
+                            <tr style="cursor:pointer;">
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.machine.serial_number }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.failure_date|date:"d.m.Y" }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.failure_node }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.recovery_date|date:"d.m.Y"|default:"—" }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.downtime|default:"—" }}</td>
+                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.service_company|default:"—" }}</td>
+                                <td style="white-space: nowrap; text-align: center;">
+                                    {% if is_manager or request.user == m.organization or request.user == m.service_company %}
+                                        <a href="{% url 'core:claim_edit' pk=c.pk %}"
+                                           title="Редактировать рекламацию"
+                                           style="margin-right: 12px; font-size: 1.2rem; text-decoration: none;">✏️</a>
+
+                                        <a href="{% url 'core:claim_delete' pk=c.pk %}"
+                                           title="Удалить рекламацию"
+                                           onclick="event.stopPropagation(); return confirm('Вы уверены, что хотите удалить эту рекламацию?');"
+                                           style="color: var(--red); font-size: 1.2rem; text-decoration: none;">🗑</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding: 3rem 1rem; color:#777; font-style: italic;">
+                                    Нет записей рекламаций
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color:#777; margin-top:1.5rem;">У вас пока нет рекламаций</p>
+            {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tabs-header { margin-bottom: 1.5rem; }
+    .tab-btn {
+        padding: 0.9rem 1.8rem;
+        font-size: 1.1rem;
+        background: #f0f0f0;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .tab-btn:hover { background: #e0e0e0; }
+    .tab-btn.active {
+        background: white;
+        border-bottom: 3px solid var(--red);
+        font-weight: bold;
+        color: var(--dark-blue);
+    }
+    .tab-panel {
+        display: none;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .tab-panel.active { display: block; }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+    .data-table th, .data-table td {
+        padding: 0.9rem 1.2rem;
+        border-bottom: 1px solid #eee;
+        text-align: left;
+    }
+    .data-table th { background: var(--dark-blue); color: white; }
+    .data-table tr:hover { background: #f8f9fa; }
+    .data-table td:last-child { text-align: center; width: 110px; }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tabs = document.querySelectorAll('.tab-btn');
+        const panels = document.querySelectorAll('.tab-panel');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Силант{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --dark-blue: #163E6C;
+            --red:     #D20A11;
+            --beige:   #EBE6D6;
+            --gray:    #f5f5f5;
+        }
+        body {
+            margin: 0;
+            font-family: 'PT Astra Sans', 'PT Sans', Arial, Helvetica, sans-serif;
+            background: var(--beige);
+            font-size: 16px;
+            line-height: 1.5;
+            color: #333;
+        }
+        header {
+            background: var(--dark-blue);
+            color: white;
+            padding: 1rem 2rem;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem;
+        }
+        nav {
+            background: white;
+            border-bottom: 1px solid #ddd;
+            padding: 0.8rem 2rem;
+        }
+        nav ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+        }
+        nav a {
+            color: var(--dark-blue);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        nav a:hover {
+            color: var(--red);
+        }
+        .user-info {
+            margin-left: auto;
+            font-size: 0.95rem;
+        }
+        main {
+            min-height: 70vh;
+        }
+        footer {
+            background: var(--dark-blue);
+            color: white;
+            text-align: center;
+            padding: 1.2rem;
+            margin-top: 3rem;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.6rem 1.4rem;
+            background: var(--red);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background: #a80a0f;
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--dark-blue);
+        }
+        .btn-outline:hover {
+            background: var(--dark-blue);
+            color: white;
+        }
+        @font-face {
+            font-family: 'PT Astra Sans';
+            src: url('{% static "core/fonts/PTAstraSans-Regular.woff2" %}') format('woff2'),
+                 url('{% static "core/fonts/PTAstraSans-Regular.ttf" %}') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'PT Astra Sans';
+            src: url('{% static "core/fonts/PTAstraSans-Bold.woff2" %}') format('woff2'),
+                 url('{% static "core/fonts/PTAstraSans-Bold.ttf" %}') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .data-table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch; /* плавный скролл на iOS */
+            margin: 1rem 0;
+        }
+
+        /* Для мобильных — уменьшаем шрифт, padding */
+        @media (max-width: 768px) {
+            body {
+                font-size: 15px;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .data-table th, .data-table td {
+                padding: 0.7rem 0.9rem;
+                font-size: 0.95rem;
+            }
+
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 1rem;
+            }
+
+            nav ul {
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            h1, h2, h3 {
+                font-size: 1.6rem; /* чуть меньше на мобильных */
+            }
+        }
+
+        /* Очень узкие экраны (телефоны) */
+        @media (max-width: 480px) {
+            .data-table th, .data-table td {
+                min-width: 120px; /* предотвращаем слишком узкие колонки */
+            }
+
+            .tab-btn {
+                padding: 0.7rem 1rem;
+                font-size: 0.95rem;
+            }
+        }
+
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<header>
+    <h1 style="margin:0; font-size:2.1rem;">Силант</h1>
+</header>
+
+<nav>
+    <div style="display:flex; align-items:center; max-width:1400px; margin:0 auto;">
+        {% if user.is_authenticated %}
+            <ul>
+                <li><a href="{% url 'core:home' %}">Главная (поиск)</a></li>
+                <li><a href="{% url 'core:dashboard' %}">Личный кабинет</a></li>
+            </ul>
+            <div class="user-info">
+                {{ user.email }}
+                <a href="{% url 'account_logout' %}" class="btn-outline" style="margin-left:1.5rem; padding:0.5rem 1rem;">Выйти</a>
+            </div>
+        {% else %}
+            <ul>
+                <li><a href="{% url 'core:home' %}">Главная</a></li>
+                <li><a href="{% url 'account_login' %}">Вход</a></li>
+            </ul>
+        {% endif %}
+    </div>
+</nav>
+
+<main class="container">
+    {% block content %}{% endblock %}
+</main>
+
+<footer>
+    <p>© 2025–2026 ООО «ЧЗСА» — Система мониторинга техники «Силант»</p>
+</footer>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
