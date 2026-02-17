@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (HomeView, DashboardView, MachineDetailView, MachineCreateView, MachineUpdateView,
                     MaintenanceCreateView, MaintenanceUpdateView, ClaimCreateView, ClaimUpdateView,
-                    MaintenanceDeleteView, ClaimDeleteView,
+                    MaintenanceDeleteView, ClaimDeleteView, export_machines,
                     )
 app_name = "core"
 
@@ -27,6 +27,8 @@ urlpatterns = [
     path('maintenance/<int:pk>/delete/', MaintenanceDeleteView.as_view(), name='maintenance_delete'),
 
     path('claim/<int:pk>/delete/', ClaimDeleteView.as_view(), name='claim_delete'),
+
+    path('export/machines/', export_machines, name='export_machines'),
 
 
 

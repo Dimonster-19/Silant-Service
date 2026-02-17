@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load django_tables2 %}
 
 {% block title %}Личный кабинет — Силант{% endblock %}
 
@@ -11,186 +12,189 @@
 
     <!-- Навигация по вкладкам -->
     <div class="tabs-header" style="display: flex; border-bottom: 2px solid #ccc;">
-        <button class="tab-btn active" data-tab="machines">Технические данные</button>
-        <button class="tab-btn" data-tab="maintenance">ТО</button>
-        <button class="tab-btn" data-tab="claims">Рекламации</button>
+        <button class="tab-btn {% if tab == 'machines' or not tab %}active{% endif %}" data-tab="machines">Технические данные</button>
+        <button class="tab-btn {% if tab == 'maintenance' %}active{% endif %}" data-tab="maintenance">ТО</button>
+        <button class="tab-btn {% if tab == 'claims' %}active{% endif %}" data-tab="claims">Рекламации</button>
     </div>
 
     <!-- Содержимое вкладок -->
     <div class="tab-content">
 
         <!-- Вкладка Машины -->
-        <div id="machines" class="tab-panel active">
+        <div id="machines" class="tab-panel {% if tab == 'machines' or not tab %}active{% endif %}">
             <h2>Доступные машины</h2>
+
+            <div style="margin: 1.5rem 0; max-width: 500px;">
+                <form id="quick-serial-search" method="get" style="display: flex; gap: 0.8rem; align-items: center;">
+                    <input type="hidden" name="tab" value="machines">
+                    {% for key, value in request.GET.items %}
+                        {% if key != 'serial_quick' and key != 'page' %}
+                            <input type="hidden" name="{{ key }}" value="{{ value }}">
+                        {% endif %}
+                    {% endfor %}
+                    <input
+                        type="text"
+                        name="serial_quick"
+                        placeholder="Быстрый поиск по зав. № машины"
+                        value="{{ request.GET.serial_quick|default:'' }}"
+                        style="flex: 1; padding: 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 6px;"
+                        autofocus
+                    >
+                    <button type="submit" class="btn" style="padding: 0.8rem 1.5rem;">Найти</button>
+                    {% if request.GET.serial_quick %}
+                        <a href="{% url 'core:dashboard' %}?tab=machines" class="btn-outline" style="padding: 0.8rem 1.5rem;">Сбросить</a>
+                    {% endif %}
+                </form>
+            </div>
+
+            <a href="{% url 'core:export_machines' %}?{{ request.GET.urlencode }}"
+               class="btn-outline"
+               style="padding: 0.8rem 1.5rem; margin-left: 1rem;">
+                Экспорт в Excel
+            </a>
+
             {% if can_edit %}
-              <p style="margin: 1.5rem 0;">
-                  <a href="{% url 'core:machine_create' %}" class="btn" style="font-size: 1.1rem;">
-                      + Добавить новую машину
-                  </a>
-              </p>
+            <p style="margin: 1.5rem 0;">
+                <a href="{% url 'core:machine_create' %}" class="btn" style="font-size: 1.1rem;">
+                    + Добавить новую машину
+                </a>
+            </p>
             {% endif %}
 
-            {% if machines %}
-                <div class="data-table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Зав. №</th>
-                                <th>Модель</th>
-                                <th>Дата отгрузки</th>
-                                <th>Клиент</th>
-                                <th>Сервисная орг.</th>
-                                {% if can_edit %}
-                                    <th>Действия</th>
-                                {% endif %}
-                            </tr>
-                        </thead>
-                    <tbody>
-                        {% for m in machines %}
-                        <tr style="cursor: pointer;" onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.serial_number %}'">
-                            <td>{{ m.serial_number }}</td>
-                            <td>{{ m.model.name|default:"—" }}</td>
-                            <td>{{ m.shipment_date|date:"d.m.Y"|default:"—" }}</td>
-                            <td>{{ m.client.email|default:"—" }}</td>
-                            <td>{{ m.service_company.email|default:"—" }}</td>
-                            {% if can_edit %}
-                                <td>
-                                    <a href="{% url 'core:machine_edit' serial_number=m.serial_number %}" style="text-decoration: none;">✏️ Редактировать</a>
-                                </td>
-                            {% endif %}
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="{% if can_edit %}6{% else %}5{% endif %}" style="text-align:center; padding:2rem; color:#777;">
-                                У вас пока нет доступных машин
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            {% if machine_filter %}
+            <!-- Форма фильтров -->
+            <form method="get" style="margin-bottom: 2rem; padding: 1.5rem; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
+                <input type="hidden" name="tab" value="machines">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end;">
+                    {% for field in machine_filter.form %}
+                    <div style="flex: 1 1 200px; min-width: 220px;">
+                        <label for="{{ field.id_for_label }}" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--dark-blue);">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {% if field.help_text %}
+                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.3rem;">
+                            {{ field.help_text }}
+                        </small>
+                        {% endif %}
+                        {% if field.errors %}
+                        <div style="color: var(--red); font-size: 0.9rem; margin-top: 0.3rem;">
+                            {{ field.errors }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <button type="submit" class="btn" style="padding: 0.9rem 2rem; font-size: 1.1rem;">Применить</button>
+                        <a href="{% url 'core:dashboard' %}?tab=machines" class="btn-outline" style="padding: 0.9rem 2rem;">Сбросить</a>
+                    </div>
                 </div>
-            {% else %}
-                <p style="margin-top:1.5rem; font-size:1.1rem; color:#555;">
-                    Пока нет машин, доступных для просмотра.
+            </form>
+            {% endif %}
+
+            <div class="data-table-container">
+                {% if machines_table %}
+                {% render_table machines_table %}
+                {% else %}
+                <p style="text-align: center; color: #777; padding: 2rem 0;">
+                    Таблица не загружена (возможно, ошибка загрузки данных)
                 </p>
+                {% endif %}
+            </div>
+
+            {% if not has_machines %}
+            <p style="margin-top:1.5rem; font-size:1.1rem; color:#555; text-align:center;">
+                Нет доступных машин после фильтрации или в целом.
+            </p>
             {% endif %}
         </div>
 
         <!-- Вкладка ТО -->
-        <div id="maintenance" class="tab-panel">
+        <div id="maintenance" class="tab-panel {% if tab == 'maintenance' %}active{% endif %}">
             <h2>История технического обслуживания</h2>
 
-            {% if maintenances %}
-                <div class="data-table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Машина</th>
-                                <th>Вид ТО</th>
-                                <th>Дата</th>
-                                <th>Наработка, м/ч</th>
-                                <th>Сервис / Организация</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                    <tbody>
-                        {% for m in maintenances %}
-                            <tr style="cursor:pointer;">
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">{{ m.machine.serial_number }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">{{ m.type }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">{{ m.date|date:"d.m.Y" }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">{{ m.hours|default:"—" }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=m.machine.serial_number %}'">
-                                    {% if m.organization %}
-                                        {{ m.organization }}
-                                    {% elif m.service_company %}
-                                        {{ m.service_company }}
-                                    {% else %}
-                                        —
-                                    {% endif %}
-                                </td>
-                                <td style="white-space: nowrap; text-align: center;">
-                                    {% if is_manager or request.user == m.organization or request.user == m.service_company %}
-                                        <a href="{% url 'core:maintenance_edit' pk=m.pk %}"
-                                           title="Редактировать ТО"
-                                           style="margin-right: 12px; font-size: 1.2rem; text-decoration: none;">✏️</a>
-
-                                        <a href="{% url 'core:maintenance_delete' pk=m.pk %}"
-                                           title="Удалить ТО"
-                                           onclick="event.stopPropagation(); return confirm('Вы уверены, что хотите удалить эту запись ТО?');"
-                                           style="color: var(--red); font-size: 1.2rem; text-decoration: none;">🗑</a>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="6" style="text-align:center; padding: 3rem 1rem; color:#777; font-style: italic;">
-                                    Нет записей технического обслуживания
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p style="color:#777; margin-top:1.5rem;">У вас пока нет записей ТО</p>
+            {% if maintenance_filter %}
+            <form method="get" style="margin-bottom: 2rem; padding: 1.5rem; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
+                <input type="hidden" name="tab" value="maintenance">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end;">
+                    {% for field in maintenance_filter.form %}
+                    <div style="flex: 1 1 200px; min-width: 220px;">
+                        <label for="{{ field.id_for_label }}" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--dark-blue);">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {% if field.help_text %}<small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.3rem;">{{ field.help_text }}</small>{% endif %}
+                        {% if field.errors %}<div style="color: var(--red); font-size: 0.9rem; margin-top: 0.3rem;">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <button type="submit" class="btn" style="padding: 0.9rem 2rem; font-size: 1.1rem;">Применить</button>
+                        <a href="{% url 'core:dashboard' %}?tab=maintenance" class="btn-outline" style="padding: 0.9rem 2rem;">Сбросить</a>
+                    </div>
+                </div>
+            </form>
             {% endif %}
+
+            <div class="data-table-container">
+                {% if maintenances_table %}
+                {% render_table maintenances_table %}
+                {% else %}
+                <p style="text-align: center; color: #777; padding: 2rem 0;">
+                    Таблица не загружена
+                </p>
+                {% endif %}
             </div>
+
+            {% if not has_maintenances %}
+            <p style="color:#777; margin-top:1.5rem; text-align:center;">
+                Нет записей ТО после фильтрации или в целом.
+            </p>
+            {% endif %}
         </div>
 
         <!-- Вкладка Рекламации -->
-        <div id="claims" class="tab-panel">
+        <div id="claims" class="tab-panel {% if tab == 'claims' %}active{% endif %}">
             <h2>Рекламации</h2>
 
-            {% if claims %}
-                <div class="data-table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Машина</th>
-                                <th>Дата отказа</th>
-                                <th>Узел отказа</th>
-                                <th>Дата восстановления</th>
-                                <th>Простой (дней)</th>
-                                <th>Сервис</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                    <tbody>
-                        {% for c in claims %}
-                            <tr style="cursor:pointer;">
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.machine.serial_number }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.failure_date|date:"d.m.Y" }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.failure_node }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.recovery_date|date:"d.m.Y"|default:"—" }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.downtime|default:"—" }}</td>
-                                <td onclick="window.location.href='{% url 'core:machine_detail' serial_number=c.machine.serial_number %}'">{{ c.service_company|default:"—" }}</td>
-                                <td style="white-space: nowrap; text-align: center;">
-                                    {% if is_manager or request.user == m.organization or request.user == m.service_company %}
-                                        <a href="{% url 'core:claim_edit' pk=c.pk %}"
-                                           title="Редактировать рекламацию"
-                                           style="margin-right: 12px; font-size: 1.2rem; text-decoration: none;">✏️</a>
-
-                                        <a href="{% url 'core:claim_delete' pk=c.pk %}"
-                                           title="Удалить рекламацию"
-                                           onclick="event.stopPropagation(); return confirm('Вы уверены, что хотите удалить эту рекламацию?');"
-                                           style="color: var(--red); font-size: 1.2rem; text-decoration: none;">🗑</a>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="7" style="text-align:center; padding: 3rem 1rem; color:#777; font-style: italic;">
-                                    Нет записей рекламаций
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p style="color:#777; margin-top:1.5rem;">У вас пока нет рекламаций</p>
+            {% if claim_filter %}
+            <form method="get" style="margin-bottom: 2rem; padding: 1.5rem; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
+                <input type="hidden" name="tab" value="claims">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end;">
+                    {% for field in claim_filter.form %}
+                    <div style="flex: 1 1 200px; min-width: 220px;">
+                        <label for="{{ field.id_for_label }}" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--dark-blue);">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {% if field.help_text %}<small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.3rem;">{{ field.help_text }}</small>{% endif %}
+                        {% if field.errors %}<div style="color: var(--red); font-size: 0.9rem; margin-top: 0.3rem;">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <button type="submit" class="btn" style="padding: 0.9rem 2rem; font-size: 1.1rem;">Применить</button>
+                        <a href="{% url 'core:dashboard' %}?tab=claims" class="btn-outline" style="padding: 0.9rem 2rem;">Сбросить</a>
+                    </div>
+                </div>
+            </form>
             {% endif %}
+
+            <div class="data-table-container">
+                {% if claims_table %}
+                {% render_table claims_table %}
+                {% else %}
+                <p style="text-align: center; color: #777; padding: 2rem 0;">
+                    Таблица не загружена
+                </p>
+                {% endif %}
             </div>
+
+            {% if not has_claims %}
+            <p style="color:#777; margin-top:1.5rem; text-align:center;">
+                Нет рекламаций после фильтрации или в целом.
+            </p>
+            {% endif %}
         </div>
+
     </div>
 </div>
 
@@ -220,19 +224,50 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
     .tab-panel.active { display: block; }
-    .data-table {
+    .data-table-container {
+        overflow-x: auto;
+    }
+    table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 1rem;
     }
-    .data-table th, .data-table td {
+    th, td {
         padding: 0.9rem 1.2rem;
         border-bottom: 1px solid #eee;
         text-align: left;
     }
-    .data-table th { background: var(--dark-blue); color: white; }
-    .data-table tr:hover { background: #f8f9fa; }
-    .data-table td:last-child { text-align: center; width: 110px; }
+    th { background: var(--dark-blue); color: white; }
+    tr:hover { background: #f8f9fa; }
+    td:last-child { text-align: center; width: 110px; }
+
+    .paginator {
+        margin-top: 1.5rem;
+        text-align: center;
+    }
+    .paginator a {
+        padding: 0.5rem 1rem;
+        background: #f0f0f0;
+        border: 1px solid #ddd;
+        margin: 0 0.2rem;
+        border-radius: 4px;
+        text-decoration: none;
+        color: var(--dark-blue);
+    }
+    .paginator .current {
+        background: var(--dark-blue);
+        color: white;
+    }
+
+    @media (max-width: 768px) {
+        div[style*="flex-wrap: wrap"] {
+            flex-direction: column;
+        }
+        .tab-btn {
+            flex: 1;
+            text-align: center;
+        }
+    }
 </style>
 
 <script>
@@ -240,6 +275,7 @@
         const tabs = document.querySelectorAll('.tab-btn');
         const panels = document.querySelectorAll('.tab-panel');
 
+        // Активируем начальную вкладку (уже сделано через классы)
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 tabs.forEach(t => t.classList.remove('active'));

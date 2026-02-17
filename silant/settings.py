@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'django_filters',
+    'django_tables2',
+    'rest_framework',
     # 'allauth.socialaccount.providers.google',  # и т.д. — если позже понадобятся
 ]
 

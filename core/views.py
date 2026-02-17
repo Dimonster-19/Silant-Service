@@ -8,7 +8,11 @@ from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.contrib.auth.mixins import UserPassesTestMixin
+from django_tables2 import RequestConfig
+from .filters import MachineFilter, MaintenanceFilter, ClaimFilter
+from .tables import MachineTable, MaintenanceTable, ClaimTable
 
+from django_tables2 import RequestConfig
 
 class ManagerOnlyMixin(UserPassesTestMixin):
     def test_func(self):
@@ -60,7 +64,6 @@ class HomeView(View):
 
 
 
-
 @method_decorator(login_required, name='dispatch')
 class DashboardView(View):
     template_name = "core/dashboard.html"
@@ -68,40 +71,77 @@ class DashboardView(View):
     def get(self, request):
         user = request.user
         tab = request.GET.get('tab', 'machines')
+        is_manager = user.groups.filter(name='Менеджер').exists()
 
-        # Всегда вычисляем все три набора данных
-        if user.groups.filter(name='Менеджер').exists():
-            machines = Machine.objects.all()
-            maintenances = Maintenance.objects.all()
-            claims = Claim.objects.all()
-        elif user.groups.filter(name='Сервисная_организация').exists():
-            machines = Machine.objects.filter(service_company=user)
-            maintenances = Maintenance.objects.filter(
-                Q(service_company=user) | Q(organization=user)
-            )
-            claims = Claim.objects.filter(service_company=user)
+        # Определяем базовые queryset'ы в зависимости от роли
+        if is_manager:
+            machine_qs = Machine.objects.all()
+            maintenance_qs = Maintenance.objects.all()
+            claim_qs = Claim.objects.all()
         elif user.groups.filter(name='Клиент').exists():
-            machines = Machine.objects.filter(client=user)
-            maintenances = Maintenance.objects.filter(machine__client=user)
-            claims = Claim.objects.filter(machine__client=user)
+            machine_qs = Machine.objects.filter(client=user)
+            maintenance_qs = Maintenance.objects.filter(machine__client=user)
+            claim_qs = Claim.objects.filter(machine__client=user)
+        elif user.groups.filter(name='Сервисная_организация').exists():
+            machine_qs = Machine.objects.filter(service_company=user)
+            maintenance_qs = Maintenance.objects.filter(
+                Q(organization=user) | Q(service_company=user)
+            )
+            claim_qs = Claim.objects.filter(service_company=user)
         else:
-            machines = Machine.objects.none()
-            maintenances = Maintenance.objects.none()
-            claims = Claim.objects.none()
-
-        # Сортировки
-        machines = machines.order_by('-shipment_date')
-        maintenances = maintenances.order_by('-date')
-        claims = claims.order_by('-failure_date')
+            machine_qs = Machine.objects.none()
+            maintenance_qs = Maintenance.objects.none()
+            claim_qs = Claim.objects.none()
 
         context = {
-            'active_tab': tab,
-            'can_edit': user.groups.filter(name='Менеджер').exists(),
-            'is_manager': user.groups.filter(name='Менеджер').exists(),
-            'machines': machines,
-            'maintenances': maintenances,
-            'claims': claims,
+            'tab': tab,
+            'is_manager': is_manager,
+            'can_edit': is_manager,
         }
+
+        # ────────────────────────────────────────────────
+        # Вкладка МАШИНЫ
+        # ────────────────────────────────────────────────
+        # Быстрый поиск по зав. номеру (применяется первым)
+        serial_quick = request.GET.get('serial_quick', '').strip()
+        if serial_quick:
+            machine_qs = machine_qs.filter(serial_number__icontains=serial_quick)
+
+        machine_filter = MachineFilter(request.GET, queryset=machine_qs, prefix='m')
+        machines_table = MachineTable(machine_filter.qs, request=request)
+        RequestConfig(request, paginate={"per_page": 20}).configure(machines_table)
+
+        context.update({
+            'machine_filter': machine_filter,
+            'machines_table': machines_table,
+            'has_machines': machine_filter.qs.exists(),
+        })
+
+        # ────────────────────────────────────────────────
+        # Вкладка ТО
+        # ────────────────────────────────────────────────
+        maintenance_filter = MaintenanceFilter(request.GET, queryset=maintenance_qs, prefix='mt')
+        maintenances_table = MaintenanceTable(maintenance_filter.qs, request=request)
+        RequestConfig(request, paginate={"per_page": 15}).configure(maintenances_table)
+
+        context.update({
+            'maintenance_filter': maintenance_filter,
+            'maintenances_table': maintenances_table,
+            'has_maintenances': maintenance_filter.qs.exists(),
+        })
+
+        # ────────────────────────────────────────────────
+        # Вкладка РЕКЛАМАЦИИ
+        # ────────────────────────────────────────────────
+        claim_filter = ClaimFilter(request.GET, queryset=claim_qs, prefix='cl')
+        claims_table = ClaimTable(claim_filter.qs, request=request)
+        RequestConfig(request, paginate={"per_page": 15}).configure(claims_table)
+
+        context.update({
+            'claim_filter': claim_filter,
+            'claims_table': claims_table,
+            'has_claims': claim_filter.qs.exists(),
+        })
 
         return render(request, self.template_name, context)
 
@@ -353,3 +393,40 @@ class ClaimDeleteView(LoginRequiredMixin, OwnershipMixin, DeleteView):
         messages.success(self.request, 'Рекламация успешно удалена.')
         return super().form_valid(form)
 
+from django.utils import timezone
+from .utils.export import export_to_excel
+
+
+@login_required
+def export_machines(request):
+    # Получаем тот же queryset, что и в дашборде
+    user = request.user
+    is_manager = user.groups.filter(name='Менеджер').exists()
+
+    if is_manager:
+        qs = Machine.objects.all()
+    elif user.groups.filter(name='Клиент').exists():
+        qs = Machine.objects.filter(client=user)
+    elif user.groups.filter(name='Сервисная_организация').exists():
+        qs = Machine.objects.filter(service_company=user)
+    else:
+        qs = Machine.objects.none()
+
+    # Применяем те же фильтры
+    filter_set = MachineFilter(request.GET, queryset=qs, prefix='m')
+    qs = filter_set.qs
+
+    # Если есть быстрый поиск
+    serial_quick = request.GET.get('serial_quick', '').strip()
+    if serial_quick:
+        qs = qs.filter(serial_number__icontains=serial_quick)
+
+    fields = ['serial_number', 'model', 'shipment_date', 'client', 'service_company']
+    titles = ['Зав. №', 'Модель техники', 'Дата отгрузки', 'Клиент', 'Сервисная орг.']
+
+    return export_to_excel(
+        qs,
+        fields,
+        titles,
+        filename=f"машины_{timezone.now().strftime('%Y-%m-%d')}.xlsx"
+    )
